@@ -1,0 +1,122 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members Member[]
+  canvases Canvas[]
+}
+
+model Member {
+  id          String    @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        Role      @default(MEMBER)
+  createdAt   DateTime  @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+}
+
+model Canvas {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  nodes       Node[]
+  connections Connection[]
+}
+
+model Node {
+  id       String   @id @default(cuid())
+  canvasId String
+  type     NodeType
+  name     String
+
+  // Position on the canvas
+  positionX Float @default(0)
+  positionY Float @default(0)
+  width     Float @default(200)
+  height    Float @default(150)
+
+  // Optional parent (e.g. a component inside a screen)
+  parentId String?
+
+  // Flexible extra data (thumbnail url, bounding box from source, etc.)
+  metadata Json @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  canvas  Canvas  @relation(fields: [canvasId], references: [id], onDelete: Cascade)
+  parent  Node?   @relation("NodeChildren", fields: [parentId], references: [id])
+  children Node[] @relation("NodeChildren")
+
+  source             NodeSource?
+  connectionsAsSource Connection[] @relation("ConnectionSource")
+  connectionsAsTarget Connection[] @relation("ConnectionTarget")
+}
+
+model NodeSource {
+  id         String  @id @default(cuid())
+  nodeId     String  @unique
+  adapter    String  // 'figma' | 'github' | 'storybook' ...
+  externalId String  // ID in the external tool
+  externalMeta Json  @default("{}") // raw data from the adapter
+
+  node Node @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  @@index([adapter, externalId])
+}
+
+model Connection {
+  id           String          @id @default(cuid())
+  canvasId     String
+  sourceNodeId String
+  targetNodeId String
+  trigger      ConnectionTrigger @default(TAP)
+  label        String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  canvas     Canvas @relation(fields: [canvasId], references: [id], onDelete: Cascade)
+  sourceNode Node   @relation("ConnectionSource", fields: [sourceNodeId], references: [id], onDelete: Cascade)
+  targetNode Node   @relation("ConnectionTarget", fields: [targetNodeId], references: [id], onDelete: Cascade)
+}
+
+enum NodeType {
+  SCREEN
+  COMPONENT
+  STATE
+}
+
+enum ConnectionTrigger {
+  TAP
+  HOVER
+  SUBMIT
+  SUCCESS
+  ERROR
+  SWIPE
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+}
