@@ -35,6 +35,7 @@ model Canvas {
   workspaceId String
   name        String
   description String?
+  isPublic    Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -119,4 +120,17 @@ enum Role {
   OWNER
   ADMIN
   MEMBER
+}
+
+model Integration {
+  id           String    @id @default(cuid())
+  userId       String
+  provider     String    // 'figma'
+  accessToken  String
+  refreshToken String?
+  expiresAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([userId, provider])
 }
